@@ -172,17 +172,15 @@ eMBRTUReceive( UCHAR * pucRcvAddress, UCHAR ** pucFrame, USHORT * pusLength )
         /* Return the start of the Modbus PDU to the caller. */
         *pucFrame = ( UCHAR * ) & ucRTUBuf[MB_SER_PDU_PDU_OFF];
         xFrameReceived = TRUE;
-        
-        // Added by Cam
-        // Now that the poll routine knows about the received frame, 
-        // clear the receive buffer position ready for the next frame received
-        usRcvBufferPos = 0;
-
     }
     else
     {
         eStatus = MB_EIO;
     }
+       
+    // Now that the poll routine knows about the received frame, or it's and invalid one, 
+    // clear the receive buffer position ready for the next frame received
+    usRcvBufferPos = 0;
 
     EXIT_CRITICAL_SECTION(  );
     return eStatus;
