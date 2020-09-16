@@ -33,51 +33,30 @@
 /* ----------------------- static functions ---------------------------------*/
 static void prvvUARTTxReadyISR( void );
 static void prvvUARTRxISR( void );
-static void prvvUARTISR( void );
 
 /* ----------------------- System Variables ---------------------------------*/
-Serial pc(USBTX, USBRX);            // Cam - mbed USB serial port
-
-Ticker simISR;                      // Cam - mbed ticker
-                                    // we don't have the TX buff empty interrupt, so
-                                    // we just interrupt every 1 mSec and read RX & TX
-                                    // status to simulate the proper ISRs.
-
-static BOOL RxEnable, TxEnable;     // Cam - keep a static copy of the RxEnable and TxEnable
-                                    // status for the simulated ISR (ticker)
+UnbufferedSerial pc(USART3_TX, USART3_RX, 57600);    // Cam - mbed USB serial port
 
 
 /* ----------------------- Start implementation -----------------------------*/
-// Cam - This is called every 1mS to simulate Rx character received ISR and
-// Tx buffer empty ISR.
-static void
-prvvUARTISR( void )
-{
-    if (TxEnable)
-        if(pc.writeable())
-            prvvUARTTxReadyISR();
-            
-    if (RxEnable)
-        if(pc.readable())
-            prvvUARTRxISR();          
-}
-
 void
 vMBPortSerialEnable( BOOL xRxEnable, BOOL xTxEnable )
 {
     /* If xRXEnable enable serial receive interrupts. If xTxENable enable
      * transmitter empty interrupts.
      */
-    RxEnable = xRxEnable;
-    TxEnable = xTxEnable;
+    pc.enable_input( xRxEnable );
+    pc.enable_output( xTxEnable );
 }
 
 BOOL
 xMBPortSerialInit( UCHAR ucPORT, ULONG ulBaudRate, UCHAR ucDataBits, eMBParity eParity )
 {
-    simISR.attach_us(&prvvUARTISR,1000);    // Cam - attach prvvUARTISR to a 1mS ticker to simulate serial interrupt behaviour
-                                            // 1mS is just short of a character time at 9600 bps, so quick enough to pick
-                                            // up status on a character by character basis.
+    pc.enable_output( false );
+    pc.enable_input( false );
+    pc.set_blocking( false );
+    pc.attach( &prvvUARTTxReadyISR, SerialBase::TxIrq );
+    pc.attach( &prvvUARTRxISR, SerialBase::RxIrq ); 
     return TRUE;
 }
 
@@ -87,7 +66,7 @@ xMBPortSerialPutByte( CHAR ucByte )
     /* Put a byte in the UARTs transmit buffer. This function is called
      * by the protocol stack if pxMBFrameCBTransmitterEmpty( ) has been
      * called. */
-    pc.putc( ucByte);
+    pc.write( &ucByte, 1 );
     return TRUE;
 }
 
@@ -97,19 +76,20 @@ xMBPortSerialGetByte( CHAR * pucByte )
     /* Return the byte in the UARTs receive buffer. This function is called
      * by the protocol stack after pxMBFrameCBByteReceived( ) has been called.
      */
-    * pucByte = pc.getc();
+    pc.read( pucByte, 1 );
     return TRUE;
 }
 
 /* Create an interrupt handler for the transmit buffer empty interrupt
  * (or an equivalent) for your target processor. This function should then
  * call pxMBFrameCBTransmitterEmpty( ) which tells the protocol stack that
- * a new character can be sent. The protocol stack will then call 
+ * a new character can be sent. The protocol stack will then call
  * xMBPortSerialPutByte( ) to send the character.
  */
 static void prvvUARTTxReadyISR( void )
 {
-    pxMBFrameCBTransmitterEmpty(  );
+    if( pc.writable() )
+        pxMBFrameCBTransmitterEmpty(  );
 }
 
 /* Create an interrupt handler for the receive interrupt for your target
@@ -119,7 +99,9 @@ static void prvvUARTTxReadyISR( void )
  */
 static void prvvUARTRxISR( void )
 {
-    pxMBFrameCBByteReceived(  );
+    if( pc.readable() ) {
+        pxMBFrameCBByteReceived(  );
+    }
 }
 
 
