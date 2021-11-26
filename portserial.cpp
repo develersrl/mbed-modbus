@@ -35,7 +35,7 @@ static void prvvUARTTxReadyISR( void );
 static void prvvUARTRxISR( void );
 
 /* ----------------------- System Variables ---------------------------------*/
-UnbufferedSerial pc(USART3_TX, USART3_RX, 57600);    // Cam - mbed USB serial port
+UnbufferedSerial pc(USART3_TX, USART3_RX);    // Cam - mbed USB serial port
 
 
 /* ----------------------- Start implementation -----------------------------*/
@@ -55,6 +55,7 @@ xMBPortSerialInit( UCHAR ucPORT, ULONG ulBaudRate, UCHAR ucDataBits, eMBParity e
     pc.enable_output( false );
     pc.enable_input( false );
     pc.set_blocking( false );
+    pc.baud( ulBaudRate );
     pc.attach( &prvvUARTTxReadyISR, SerialBase::TxIrq );
     pc.attach( &prvvUARTRxISR, SerialBase::RxIrq ); 
     return TRUE;
